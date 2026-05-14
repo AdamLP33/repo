@@ -1,0 +1,172 @@
+"""
+Rosa Bonita Animada - Python con matplotlib
+Ejecutar: python rosa_animada.py
+Requiere: pip install matplotlib numpy
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib.patches import Ellipse, FancyArrowPatch
+from matplotlib.animation import FuncAnimation
+from matplotlib.colors import to_rgba
+import matplotlib.patheffects as pe
+
+fig, ax = plt.subplots(figsize=(7, 8), facecolor='#0a0008')
+ax.set_facecolor('#0a0008')
+ax.set_xlim(-5, 5)
+ax.set_ylim(-7, 5)
+ax.set_aspect('equal')
+ax.axis('off')
+
+fig.suptitle('🌹 Rosa de Medianoche', color='#f4a0b0',
+             fontsize=15, fontstyle='italic', fontfamily='serif', y=0.97)
+
+# ── Capas de pétalos ──────────────────────────────────────────────────────────
+petal_layers = [
+    {'count': 5,  'r1': 1.9, 'r2': 1.2, 'offset': 0.0,  'color': '#8B0020', 'speed': 0.30},
+    {'count': 6,  'r1': 1.5, 'r2': 0.95,'offset': 0.3,  'color': '#B5002A', 'speed': 0.38},
+    {'count': 7,  'r1': 1.1, 'r2': 0.70,'offset': 0.65, 'color': '#CC1040', 'speed': 0.48},
+    {'count': 5,  'r1': 0.75,'r2': 0.48,'offset': 1.1,  'color': '#E03055', 'speed': 0.60},
+    {'count': 4,  'r1': 0.45,'r2': 0.30,'offset': 1.5,  'color': '#F06070', 'speed': 0.75},
+]
+
+petal_artists = []
+
+for layer in petal_layers:
+    layer_artists = []
+    for i in range(layer['count']):
+        e = Ellipse(
+            xy=(0, 0),
+            width=layer['r2'] * 2,
+            height=layer['r1'] * 2,
+            angle=0,
+            color=layer['color'],
+            alpha=0.92,
+            zorder=3
+        )
+        ax.add_patch(e)
+        layer_artists.append(e)
+    petal_artists.append(layer_artists)
+
+# ── Centro ────────────────────────────────────────────────────────────────────
+center_circle = plt.Circle((0, 0), 0.22, color='#ff8090', zorder=10)
+ax.add_patch(center_circle)
+
+# ── Tallo ─────────────────────────────────────────────────────────────────────
+stem_line, = ax.plot([], [], color='#2d6e2a', linewidth=4,
+                     solid_capstyle='round', zorder=1)
+
+# ── Hoja izquierda ────────────────────────────────────────────────────────────
+leaf_left = Ellipse(xy=(-0.5, -2.5), width=1.4, height=0.55,
+                    angle=-40, color='#3a8c35', alpha=0.95, zorder=2)
+ax.add_patch(leaf_left)
+
+# ── Hoja derecha ──────────────────────────────────────────────────────────────
+leaf_right = Ellipse(xy=(0.7, -3.5), width=1.3, height=0.50,
+                     angle=35, color='#4aac44', alpha=0.95, zorder=2)
+ax.add_patch(leaf_right)
+
+# ── Gotas de rocío ────────────────────────────────────────────────────────────
+dew_positions = [(-1.0, -1.8), (1.1, -1.5), (-0.3, -2.5),
+                 (1.5, -0.8), (-1.6, -0.5)]
+dew_dots = []
+for pos in dew_positions:
+    dot, = ax.plot(*pos, 'o', color='white', markersize=4,
+                   alpha=0.6, zorder=8,
+                   markeredgecolor='#ffddee', markeredgewidth=0.5)
+    dew_dots.append(dot)
+
+# ── Brillo central parpadeante ────────────────────────────────────────────────
+center_glow, = ax.plot(0, 0, 'o', color='#ffaacc', markersize=10,
+                        alpha=0.25, zorder=9)
+
+# ── Partículas flotantes ──────────────────────────────────────────────────────
+n_particles = 18
+np.random.seed(42)
+px = np.random.uniform(-4, 4, n_particles)
+py = np.random.uniform(-5, 4, n_particles)
+pphase = np.random.uniform(0, 2 * np.pi, n_particles)
+pspeed = np.random.uniform(0.4, 1.2, n_particles)
+particle_dots, = ax.plot(px, py, 'o', color='#ff88aa',
+                          markersize=1.5, alpha=0.3, zorder=1, linestyle='None')
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+def update(frame):
+    t = frame * 0.025
+
+    # Balanceo suave de toda la rosa
+    sway = np.sin(t * 0.7) * 0.3
+
+    # Centro de la flor (sube/baja un poco)
+    flower_cx = sway * 0.6
+    flower_cy = np.sin(t * 0.5) * 0.08
+
+    # Actualizar pétalos por capa
+    for li, (layer, artists) in enumerate(zip(petal_layers, petal_artists)):
+        for i, e in enumerate(artists):
+            angle = (i / layer['count']) * 360 + np.degrees(layer['offset'])
+            angle += np.degrees(t * layer['speed'])
+            wobble = np.sin(t * 1.2 + i * 1.3 + li) * 3
+
+            rad = np.radians(angle + wobble)
+            spread = li * 0.22 + 0.15
+            px_ = flower_cx + np.cos(rad) * spread
+            py_ = flower_cy + np.sin(rad) * spread * 0.7
+
+            e.set_center((px_, py_))
+            e.angle = angle + wobble
+
+            # Pulso de brillo suave
+            brightness = 0.85 + 0.12 * np.sin(t * 1.5 + i * 0.8)
+            e.set_alpha(brightness)
+
+    # Centro
+    center_circle.set_center((flower_cx, flower_cy))
+    glow_alpha = 0.15 + 0.2 * np.sin(t * 2)
+    center_glow.set_data([flower_cx], [flower_cy])
+    center_glow.set_alpha(glow_alpha)
+
+    # Tallo con curva de Bézier simulada
+    sy = np.linspace(flower_cy - 0.2, -5.5, 60)
+    sx = flower_cx + sway * 0.4 * (1 - (sy - flower_cy) / (-5.5 - flower_cy))
+    sx += np.sin(sy * 1.5 + t * 0.3) * 0.08
+    stem_line.set_data(sx, sy)
+
+    # Mover hojas con el tallo
+    leaf_left.set_center((flower_cx - 0.6 + sway * 0.3, -2.5 + sway * 0.1))
+    leaf_right.set_center((flower_cx + 0.8 + sway * 0.2, -3.5 + sway * 0.05))
+
+    # Gotas de rocío parpadeantes
+    for j, (dot, pos) in enumerate(zip(dew_dots, dew_positions)):
+        pulse = 0.3 + 0.65 * abs(np.sin(t * 2.5 + j * 1.7))
+        dot.set_alpha(pulse)
+        dx = flower_cx + pos[0] + np.sin(t + j) * 0.07
+        dy = flower_cy + pos[1] + np.cos(t * 0.8 + j) * 0.07
+        dot.set_data([dx], [dy])
+
+    # Partículas flotantes
+    new_py = py + pspeed * 0.02
+    new_py[new_py > 4.5] = -6
+    py[:] = new_py
+    new_px = px + np.sin(pphase + t * pspeed) * 0.015
+    particle_dots.set_data(new_px, new_py)
+    particle_alpha = 0.15 + 0.25 * np.sin(t * 0.8 + pphase)
+    particle_dots.set_alpha(np.mean(particle_alpha))
+
+    return (stem_line, center_circle, center_glow,
+            leaf_left, leaf_right, particle_dots,
+            *dew_dots,
+            *[p for layer in petal_artists for p in layer])
+
+
+ani = FuncAnimation(
+    fig, update,
+    frames=600,
+    interval=30,
+    blit=False
+)
+
+plt.tight_layout()
+plt.show()
